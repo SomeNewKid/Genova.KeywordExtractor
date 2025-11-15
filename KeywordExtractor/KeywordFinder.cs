@@ -64,21 +64,35 @@ public sealed class KeywordFinder : IDisposable
 
         if (scored.Count == 0)
         {
-            return Array.Empty<string>();
+            return [];
         }
 
-        // Select top N tokens (default = 3)
-        const int keywordCount = 3;
+        // Sort tokens by descending importance
+        scored.Sort((a, b) => b.Score.CompareTo(a.Score));
 
-        string[] topKeywords = scored
-            .OrderByDescending(s => s.Score)
-            .Select(s => CleanToken(s.Token))
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(keywordCount)
-            .ToArray();
+        // Take the best score as our anchor
+        double bestScore = scored[0].Score;
 
-        return topKeywords;
+        // Keep tokens whose score is close to the best.
+        // 0.7 is an empirical choice: strong but not too strict.
+        const double RelativeScoreThreshold = 0.7;
+
+        IEnumerable<string> keywords =
+            scored
+                .Where(s => s.Score >= bestScore * RelativeScoreThreshold)
+                .Select(s => CleanToken(s.Token))
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        string[] result = keywords.ToArray();
+
+        // If, for some reason, everything got filtered out, fall back to just the strongest token.
+        if (result.Length == 0)
+        {
+            result = [ CleanToken(scored[0].Token) ];
+        }
+
+        return result;
     }
 
     /// <inheritdoc/>

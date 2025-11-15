@@ -49,4 +49,25 @@ public sealed class KeywordFinder_Tests
         keywords.Should().NotBeNull();
         keywords.Should().BeEmpty("no keywords should be extracted from an empty sentence");
     }
+
+    [Fact]
+    public void Find_should_not_return_weak_function_words()
+    {
+        // arrange
+        using KeywordFinder finder = new KeywordFinder();
+        const string sentence = "The night was stormy.";
+
+        // act
+        string[] keywords = finder.Find(sentence);
+
+        // assert
+        keywords.Should().NotBeNull();
+        keywords.Should().NotContain(k =>
+            k.Equals("the", StringComparison.OrdinalIgnoreCase),
+            "the word 'the' should not be treated as a keyword");
+
+        keywords.Should().NotContain(k =>
+            k.Equals("was", StringComparison.OrdinalIgnoreCase),
+            "the word 'was' should not be treated as a keyword");
+    }
 }
