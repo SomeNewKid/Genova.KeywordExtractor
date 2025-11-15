@@ -1,6 +1,7 @@
 ﻿// This file is part of the Genova project licensed under the GNU General Public License v3.0.
 // See the LICENSE file in the project root for more information.
 
+using System.Diagnostics.CodeAnalysis;
 using Genova.Common.Attributes;
 using Genova.MiniML;
 
@@ -14,6 +15,21 @@ namespace Genova.KeywordExtractor;
 public sealed class KeywordFinder : IDisposable
 {
     private readonly IEmbeddingModel _model;
+
+    [SuppressMessage(
+        "StyleCop.CSharp.OrderingRules",
+        "SA1204:Static elements should appear before instance elements",
+        Justification = "Conflicting naming rules.")]
+    private static readonly HashSet<string> Stopwords =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "the", "a", "an",
+            "is", "am", "are", "was", "were", "be", "been", "being",
+            "to", "of", "in", "on", "for", "from", "with",
+            "and", "or", "but", "so",
+            "this", "that", "these", "those",
+            "it", "its", "at", "by", "as",
+        };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KeywordFinder"/> class.
@@ -56,6 +72,12 @@ public sealed class KeywordFinder : IDisposable
                 continue;
             }
 
+            // Skip obvious stopwords
+            if (IsStopword(token))
+            {
+                continue;
+            }
+
             float[] vec = vectors[i];
             double norm = VectorMagnitude(vec);
 
@@ -74,8 +96,8 @@ public sealed class KeywordFinder : IDisposable
         double bestScore = scored[0].Score;
 
         // Keep tokens whose score is close to the best.
-        // 0.7 is an empirical choice: strong but not too strict.
-        const double RelativeScoreThreshold = 0.7;
+        // 0.8 is an empirical choice: strong but not too strict.
+        const double RelativeScoreThreshold = 0.8;
 
         IEnumerable<string> keywords =
             scored
@@ -89,7 +111,7 @@ public sealed class KeywordFinder : IDisposable
         // If, for some reason, everything got filtered out, fall back to just the strongest token.
         if (result.Length == 0)
         {
-            result = [ CleanToken(scored[0].Token) ];
+            result = [CleanToken(scored[0].Token)];
         }
 
         return result;
@@ -99,6 +121,11 @@ public sealed class KeywordFinder : IDisposable
     public void Dispose()
     {
         _model.Dispose();
+    }
+
+    private static bool IsStopword(string token)
+    {
+        return Stopwords.Contains(token);
     }
 
     private static double VectorMagnitude(float[] v)
